@@ -1,0 +1,251 @@
+import { 
+  startMCPServer, 
+  buildMCPUrl, 
+  createTransportOptions, 
+  validateMCPConfig, 
+  MCPConfig,
+  MCPName,
+  Region,
+  Stack
+} from '../index';
+
+// Mock the mcp-proxy module
+jest.mock('mcp-proxy', () => ({
+  startStdioServer: jest.fn(),
+  ServerType: {
+    SSE: 'SSE'
+  }
+}));
+
+// Mock consola to avoid console output during tests
+jest.mock('consola', () => ({
+  consola: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }
+}));
+
+import { startStdioServer } from 'mcp-proxy';
+
+const mockedStartStdioServer = startStdioServer as jest.MockedFunction<typeof startStdioServer>;
+
+describe('MCP Server', () => {
+  let config: MCPConfig;
+
+  beforeEach(() => {
+    config = {
+      name: 'query-manager',
+      region: 'euw',
+      stack: 'test1a',
+      apiKey: 'test-api-key'
+    };
+    jest.clearAllMocks();
+  });
+
+  describe('MCPConfig', () => {
+    test('should create MCP config with required fields', () => {
+      expect(config.name).toBe('query-manager');
+      expect(config.region).toBe('euw');
+      expect(config.apiKey).toBe('test-api-key');
+    });
+
+    test('should use default stack when not provided', () => {
+      const configWithoutStack: MCPConfig = {
+        name: 'code-writer',
+        region: 'use',
+        apiKey: 'test-key'
+      };
+      
+      expect(configWithoutStack.stack).toBeUndefined();
+    });
+
+    test('should accept valid MCP names', () => {
+      const queryManagerConfig: MCPConfig = { ...config, name: 'query-manager' };
+      const codeWriterConfig: MCPConfig = { ...config, name: 'code-writer' };
+      
+      expect(queryManagerConfig.name).toBe('query-manager');
+      expect(codeWriterConfig.name).toBe('code-writer');
+    });
+
+    test('should accept valid regions', () => {
+      const euwConfig: MCPConfig = { ...config, region: 'euw' };
+      const useConfig: MCPConfig = { ...config, region: 'use' };
+      const seaConfig: MCPConfig = { ...config, region: 'sea' };
+      
+      expect(euwConfig.region).toBe('euw');
+      expect(useConfig.region).toBe('use');
+      expect(seaConfig.region).toBe('sea');
+    });
+
+    test('should accept valid stacks', () => {
+      const stacks: Stack[] = ['prod1a', 'test1a', 'dev1a', 'dev3a', 'dev4a', 'dev5a'];
+      
+      stacks.forEach(stack => {
+        const stackConfig: MCPConfig = { ...config, stack };
+        expect(stackConfig.stack).toBe(stack);
+      });
+    });
+  });
+
+  describe('buildMCPUrl', () => {
+    test('should build URL with default stack', () => {
+      const configWithoutStack = { ...config };
+      delete configWithoutStack.stack;
+      
+      const url = buildMCPUrl(configWithoutStack);
+      expect(url).toBe('https://mcp-prod1a-euw-web-app.azurewebsites.net/query-manager/sse');
+    });
+
+    test('should build URL with custom stack', () => {
+      const url = buildMCPUrl(config);
+      expect(url).toBe('https://mcp-test1a-euw-web-app.azurewebsites.net/query-manager/sse');
+    });
+
+    test('should build URL for different regions', () => {
+      const useConfig = { ...config, region: 'use' as Region };
+      const seaConfig = { ...config, region: 'sea' as Region };
+      
+      expect(buildMCPUrl(useConfig)).toBe('https://mcp-test1a-use-web-app.azurewebsites.net/query-manager/sse');
+      expect(buildMCPUrl(seaConfig)).toBe('https://mcp-test1a-sea-web-app.azurewebsites.net/query-manager/sse');
+    });
+
+    test('should build URL for different MCP names', () => {
+      const codeWriterConfig = { ...config, name: 'code-writer' as MCPName };
+      
+      expect(buildMCPUrl(codeWriterConfig)).toBe('https://mcp-test1a-euw-web-app.azurewebsites.net/code-writer/sse');
+    });
+  });
+
+  describe('createTransportOptions', () => {
+    test('should create transport options with API key header', () => {
+      const transportOptions = createTransportOptions('test-api-key');
+      
+      expect(transportOptions).toEqual({
+        requestInit: {
+          headers: {
+            'X-inRiver-APIKey': 'test-api-key'
+          }
+        }
+      });
+    });
+
+    test('should handle different API keys', () => {
+      const transportOptions = createTransportOptions('different-key');
+      
+      expect(transportOptions.requestInit?.headers).toEqual({
+        'X-inRiver-APIKey': 'different-key'
+      });
+    });
+  });
+
+  describe('validateMCPConfig', () => {
+    test('should validate correct configuration', () => {
+      const validation = validateMCPConfig(config);
+      
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
+    });
+
+    test('should reject invalid MCP name', () => {
+      const invalidConfig = { ...config, name: 'invalid-name' as MCPName };
+      const validation = validateMCPConfig(invalidConfig);
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toContain("Invalid MCP name 'invalid-name'. Valid options: query-manager, code-writer");
+    });
+
+    test('should reject invalid region', () => {
+      const invalidConfig = { ...config, region: 'invalid-region' as Region };
+      const validation = validateMCPConfig(invalidConfig);
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toContain("Invalid region 'invalid-region'. Valid options: euw, use, sea");
+    });
+
+    test('should reject invalid stack', () => {
+      const invalidConfig = { ...config, stack: 'invalid-stack' as Stack };
+      const validation = validateMCPConfig(invalidConfig);
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toContain("Invalid stack 'invalid-stack'. Valid options: prod1a, test1a, dev1a, dev3a, dev4a, dev5a");
+    });
+
+    test('should reject empty API key', () => {
+      const invalidConfig = { ...config, apiKey: '' };
+      const validation = validateMCPConfig(invalidConfig);
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toContain('API key is required');
+    });
+
+    test('should reject whitespace-only API key', () => {
+      const invalidConfig = { ...config, apiKey: '   ' };
+      const validation = validateMCPConfig(invalidConfig);
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toContain('API key is required');
+    });
+
+    test('should collect multiple validation errors', () => {
+      const invalidConfig = {
+        name: 'invalid-name' as MCPName,
+        region: 'invalid-region' as Region,
+        stack: 'invalid-stack' as Stack,
+        apiKey: ''
+      };
+      const validation = validateMCPConfig(invalidConfig);
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toHaveLength(4);
+    });
+
+    test('should allow undefined stack (uses default)', () => {
+      const configWithoutStack = { ...config };
+      delete configWithoutStack.stack;
+      
+      const validation = validateMCPConfig(configWithoutStack);
+      
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
+    });
+  });
+
+  describe('startMCPServer', () => {
+    test('should start server with valid configuration', async () => {
+      mockedStartStdioServer.mockResolvedValue({} as any);
+      
+      await startMCPServer(config);
+      
+      expect(mockedStartStdioServer).toHaveBeenCalledWith({
+        url: 'https://mcp-test1a-euw-web-app.azurewebsites.net/query-manager/sse',
+        serverType: 'SSE',
+        transportOptions: {
+          requestInit: {
+            headers: {
+              'X-inRiver-APIKey': 'test-api-key'
+            }
+          }
+        }
+      });
+    });
+
+    test('should throw error for invalid configuration', async () => {
+      const invalidConfig = { ...config, name: 'invalid-name' as MCPName };
+      
+      await expect(startMCPServer(invalidConfig)).rejects.toThrow(
+        "Invalid configuration: Invalid MCP name 'invalid-name'. Valid options: query-manager, code-writer"
+      );
+      
+      expect(mockedStartStdioServer).not.toHaveBeenCalled();
+    });
+
+    test('should propagate errors from startStdioServer', async () => {
+      const error = new Error('Connection failed');
+      mockedStartStdioServer.mockRejectedValue(error);
+      
+      await expect(startMCPServer(config)).rejects.toThrow('Connection failed');
+    });
+  });
+});
