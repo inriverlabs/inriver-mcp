@@ -14,21 +14,11 @@ program
   .option('-r, --region <region>', 'Region (euw or use)', 'euw')
   .option('-s, --stack <stack>', 'Stack environment (prod1a or test1a)', 'prod1a')
   .option('-k, --api-key <key>', 'API key for authentication')
-  .option('-v, --verbose', 'Enable verbose logging')
-  .option('-q, --quiet', 'Suppress all output except errors')
   .option('--debug', 'Enable debug logging')
   .action(async (name: string, options: any) => {
     try {
       // Set log level based on options
-      if (options.quiet) {
-        consola.level = 0; // Only errors
-      } else if (options.debug) {
-        consola.level = 5; // All levels including debug
-      } else if (options.verbose) {
-        consola.level = 3; // Info level
-      } else {
-        consola.level = 3; // Default info level
-      }
+      consola.level = options.debug ? 5 : 3;
 
       // Validate MCP name
       const validNames: MCPName[] = ['query-manager', 'code-writer'];
