@@ -13,7 +13,7 @@ program
   .argument('<name>', 'MCP server name (query-manager or code-writer)')
   .option('-r, --region <region>', 'Region (euw or use)', 'euw')
   .option('-s, --stack <stack>', 'Stack environment (prod1a or test1a)', 'prod1a')
-  .option('-k, --api-key <key>', 'API key for authentication')
+  .option('-k, --api-key <key>', 'API key for authentication (required for query-manager)')
   .option('--debug', 'Enable debug logging')
   .action(async (name: string, options: any) => {
     try {
@@ -36,8 +36,10 @@ program
 
       // Get API key from option or environment variable
       const apiKey = options.apiKey || process.env.INRIVER_API_KEY;
-      if (!apiKey) {
-        consola.error('API key is required. Use --api-key option or set INRIVER_API_KEY environment variable.');
+
+      // For query-manager, API key is required
+      if (name === 'query-manager' && !apiKey) {
+        consola.error('API key is required for query-manager. Provide it via --api-key option or INRIVER_API_KEY environment variable.');
         process.exit(1);
       }
 
@@ -46,7 +48,7 @@ program
         name: name as MCPName,
         region: options.region as Region,
         stack: options.stack as Stack,
-        apiKey
+        ...(apiKey && { apiKey })
       };
 
       // Validate configuration
@@ -57,7 +59,7 @@ program
       }
 
       consola.debug('Configuration validated successfully');
-      consola.debug('Final config:', { ...config, apiKey: '***' });
+      consola.debug('Final config:', { ...config, apiKey: config.apiKey ? '***' : undefined });
       consola.debug(`Starting MCP server: ${name} in ${options.region} (${config.stack})`); // Default this to debug since logs cause errors to show up in Claude Desktop
       
       await startMCPServer(config);
@@ -86,7 +88,7 @@ program
     
     console.log('\nExample usage:');
     console.log('  inriver-mcp query-manager --region euw --api-key YOUR_API_KEY');
-    console.log('  inriver-mcp code-writer --region use --stack test1a --api-key YOUR_API_KEY');
+    console.log('  inriver-mcp code-writer --region use --stack test1a');
   });
 
 // Parse command line arguments

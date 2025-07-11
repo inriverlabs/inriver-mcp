@@ -9,7 +9,7 @@ export interface MCPConfig {
   name: MCPName;
   region: Region;
   stack?: Stack;
-  apiKey: string;
+  apiKey?: string;
 }
 
 /**
@@ -23,14 +23,18 @@ export function buildMCPUrl(config: MCPConfig): string {
 /**
  * Creates transport options with API key headers
  */
-export function createTransportOptions(apiKey: string): SSEClientTransportOptions {
-  return {
-    requestInit: {
-      headers: {
-        'X-inRiver-APIKey': apiKey
-      }
-    }
+export function createTransportOptions(apiKey?: string): SSEClientTransportOptions {
+  const options: SSEClientTransportOptions = {
+    requestInit: {}
   };
+
+  if (apiKey) {
+    options.requestInit!.headers = {
+      'X-inRiver-APIKey': apiKey
+    };
+  }
+
+  return options;
 }
 
 /**
@@ -55,8 +59,11 @@ export function validateMCPConfig(config: MCPConfig): { isValid: boolean; errors
     errors.push(`Invalid stack '${config.stack}'. Valid options: ${validStacks.join(', ')}`);
   }
 
-  if (!config.apiKey || config.apiKey.trim() === '') {
-    errors.push('API key is required');
+  // API key is only required for query-manager
+  if (config.name === 'query-manager') {
+    if (!config.apiKey || config.apiKey.trim() === '') {
+      errors.push('API key is required for query-manager');
+    }
   }
 
   return {

@@ -131,6 +131,22 @@ describe('MCP Server', () => {
       });
     });
 
+    test('should create transport options without API key header when no key provided', () => {
+      const transportOptions = createTransportOptions();
+      
+      expect(transportOptions).toEqual({
+        requestInit: {}
+      });
+    });
+
+    test('should create transport options without API key header when undefined key provided', () => {
+      const transportOptions = createTransportOptions(undefined);
+      
+      expect(transportOptions).toEqual({
+        requestInit: {}
+      });
+    });
+
     test('should handle different API keys', () => {
       const transportOptions = createTransportOptions('different-key');
       
@@ -141,8 +157,20 @@ describe('MCP Server', () => {
   });
 
   describe('validateMCPConfig', () => {
-    test('should validate correct configuration', () => {
+    test('should validate correct configuration for query-manager', () => {
       const validation = validateMCPConfig(config);
+      
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
+    });
+
+    test('should validate correct configuration for code-writer without API key', () => {
+      const codeWriterConfig = {
+        name: 'code-writer' as MCPName,
+        region: 'euw' as Region,
+        stack: 'test1a' as Stack
+      };
+      const validation = validateMCPConfig(codeWriterConfig);
       
       expect(validation.isValid).toBe(true);
       expect(validation.errors).toHaveLength(0);
@@ -172,20 +200,54 @@ describe('MCP Server', () => {
       expect(validation.errors).toContain("Invalid stack 'invalid-stack'. Valid options: prod1a, test1a, dev1a, dev3a, dev4a, dev5a");
     });
 
-    test('should reject empty API key', () => {
+    test('should reject empty API key for query-manager', () => {
       const invalidConfig = { ...config, apiKey: '' };
       const validation = validateMCPConfig(invalidConfig);
       
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('API key is required');
+      expect(validation.errors).toContain('API key is required for query-manager');
     });
 
-    test('should reject whitespace-only API key', () => {
+    test('should reject whitespace-only API key for query-manager', () => {
       const invalidConfig = { ...config, apiKey: '   ' };
       const validation = validateMCPConfig(invalidConfig);
       
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('API key is required');
+      expect(validation.errors).toContain('API key is required for query-manager');
+    });
+
+    test('should reject missing API key for query-manager', () => {
+      const invalidConfig = { ...config };
+      delete invalidConfig.apiKey;
+      const validation = validateMCPConfig(invalidConfig);
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toContain('API key is required for query-manager');
+    });
+
+    test('should allow missing API key for code-writer', () => {
+      const codeWriterConfig = {
+        name: 'code-writer' as MCPName,
+        region: 'euw' as Region,
+        stack: 'test1a' as Stack
+      };
+      const validation = validateMCPConfig(codeWriterConfig);
+      
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
+    });
+
+    test('should allow empty API key for code-writer', () => {
+      const codeWriterConfig = {
+        name: 'code-writer' as MCPName,
+        region: 'euw' as Region,
+        stack: 'test1a' as Stack,
+        apiKey: ''
+      };
+      const validation = validateMCPConfig(codeWriterConfig);
+      
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
     });
 
     test('should collect multiple validation errors', () => {
@@ -198,7 +260,7 @@ describe('MCP Server', () => {
       const validation = validateMCPConfig(invalidConfig);
       
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toHaveLength(4);
+      expect(validation.errors).toHaveLength(3); // name, region, stack (no API key error since name is invalid)
     });
 
     test('should allow undefined stack (uses default)', () => {
@@ -213,7 +275,7 @@ describe('MCP Server', () => {
   });
 
   describe('startMCPServer', () => {
-    test('should start server with valid configuration', async () => {
+    test('should start server with valid configuration for query-manager', async () => {
       mockedStartStdioServer.mockResolvedValue({} as any);
       
       await startMCPServer(config);
@@ -231,11 +293,42 @@ describe('MCP Server', () => {
       });
     });
 
+    test('should start server with valid configuration for code-writer without API key', async () => {
+      const codeWriterConfig = {
+        name: 'code-writer' as MCPName,
+        region: 'euw' as Region,
+        stack: 'test1a' as Stack
+      };
+      
+      mockedStartStdioServer.mockResolvedValue({} as any);
+      
+      await startMCPServer(codeWriterConfig);
+      
+      expect(mockedStartStdioServer).toHaveBeenCalledWith({
+        url: 'https://mcp-test1a-euw-web-app.azurewebsites.net/code-writer/sse',
+        serverType: 'SSE',
+        transportOptions: {
+          requestInit: {}
+        }
+      });
+    });
+
     test('should throw error for invalid configuration', async () => {
       const invalidConfig = { ...config, name: 'invalid-name' as MCPName };
       
       await expect(startMCPServer(invalidConfig)).rejects.toThrow(
         "Invalid configuration: Invalid MCP name 'invalid-name'. Valid options: query-manager, code-writer"
+      );
+      
+      expect(mockedStartStdioServer).not.toHaveBeenCalled();
+    });
+
+    test('should throw error for query-manager without API key', async () => {
+      const invalidConfig = { ...config };
+      delete invalidConfig.apiKey;
+      
+      await expect(startMCPServer(invalidConfig)).rejects.toThrow(
+        "Invalid configuration: API key is required for query-manager"
       );
       
       expect(mockedStartStdioServer).not.toHaveBeenCalled();
