@@ -17,7 +17,7 @@ export interface MCPConfig {
  */
 export function buildMCPUrl(config: MCPConfig): string {
   const stack = config.stack || 'prod1a';
-  return `https://mcp-${stack}-${config.region}-web-app.azurewebsites.net/${config.name}/sse`;
+  return `https://mcp-${stack}-${config.region}.productmarketingcloud.com/${config.name}/sse`;
 }
 
 /**

@@ -95,26 +95,26 @@ describe('MCP Server', () => {
       delete configWithoutStack.stack;
       
       const url = buildMCPUrl(configWithoutStack);
-      expect(url).toBe('https://mcp-prod1a-euw-web-app.azurewebsites.net/query-manager/sse');
+      expect(url).toBe('https://mcp-prod1a-euw.productmarketingcloud.com/query-manager/sse');
     });
 
     test('should build URL with custom stack', () => {
       const url = buildMCPUrl(config);
-      expect(url).toBe('https://mcp-test1a-euw-web-app.azurewebsites.net/query-manager/sse');
+      expect(url).toBe('https://mcp-test1a-euw.productmarketingcloud.com/query-manager/sse');
     });
 
     test('should build URL for different regions', () => {
       const useConfig = { ...config, region: 'use' as Region };
       const seaConfig = { ...config, region: 'sea' as Region };
       
-      expect(buildMCPUrl(useConfig)).toBe('https://mcp-test1a-use-web-app.azurewebsites.net/query-manager/sse');
-      expect(buildMCPUrl(seaConfig)).toBe('https://mcp-test1a-sea-web-app.azurewebsites.net/query-manager/sse');
+      expect(buildMCPUrl(useConfig)).toBe('https://mcp-test1a-use.productmarketingcloud.com/query-manager/sse');
+      expect(buildMCPUrl(seaConfig)).toBe('https://mcp-test1a-sea.productmarketingcloud.com/query-manager/sse');
     });
 
     test('should build URL for different MCP names', () => {
       const codeWriterConfig = { ...config, name: 'code-writer' as MCPName };
       
-      expect(buildMCPUrl(codeWriterConfig)).toBe('https://mcp-test1a-euw-web-app.azurewebsites.net/code-writer/sse');
+      expect(buildMCPUrl(codeWriterConfig)).toBe('https://mcp-test1a-euw.productmarketingcloud.com/code-writer/sse');
     });
   });
 
@@ -281,7 +281,7 @@ describe('MCP Server', () => {
       await startMCPServer(config);
       
       expect(mockedStartStdioServer).toHaveBeenCalledWith({
-        url: 'https://mcp-test1a-euw-web-app.azurewebsites.net/query-manager/sse',
+        url: 'https://mcp-test1a-euw.productmarketingcloud.com/query-manager/sse',
         serverType: 'SSE',
         transportOptions: {
           requestInit: {
@@ -305,7 +305,7 @@ describe('MCP Server', () => {
       await startMCPServer(codeWriterConfig);
       
       expect(mockedStartStdioServer).toHaveBeenCalledWith({
-        url: 'https://mcp-test1a-euw-web-app.azurewebsites.net/code-writer/sse',
+        url: 'https://mcp-test1a-euw.productmarketingcloud.com/code-writer/sse',
         serverType: 'SSE',
         transportOptions: {
           requestInit: {}
