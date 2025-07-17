@@ -6,7 +6,9 @@ import {
   MCPConfig,
   MCPName,
   Region,
-  Stack
+  Stack,
+  logger,
+  LogLevel
 } from '../index';
 
 // Mock the mcp-proxy module
@@ -17,13 +19,20 @@ jest.mock('mcp-proxy', () => ({
   }
 }));
 
-// Mock consola to avoid console output during tests
-jest.mock('consola', () => ({
-  consola: {
+// Mock the custom logger
+jest.mock('../logger', () => ({
+  logger: {
+    setLevel: jest.fn(),
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+  },
+  LogLevel: {
+    DEBUG: 0,
+    INFO: 1,
+    WARN: 2,
+    ERROR: 3
   }
 }));
 
@@ -339,6 +348,54 @@ describe('MCP Server', () => {
       mockedStartStdioServer.mockRejectedValue(error);
       
       await expect(startMCPServer(config)).rejects.toThrow('Connection failed');
+    });
+
+    test('should not log anything to stdout during server start', async () => {
+      const originalWrite = process.stdout.write;
+      const stdoutOutput: string[] = [];
+      
+      // Mock stdout.write to capture any output
+      process.stdout.write = jest.fn((chunk: any) => {
+        stdoutOutput.push(chunk.toString());
+        return true;
+      }) as any;
+
+      try {
+        mockedStartStdioServer.mockResolvedValue({} as any);
+        
+        await startMCPServer(config);
+        
+        // Verify no output was written to stdout
+        expect(stdoutOutput).toHaveLength(0);
+        expect(mockedStartStdioServer).toHaveBeenCalled();
+      } finally {
+        // Restore original stdout.write
+        process.stdout.write = originalWrite;
+      }
+    });
+
+    test('should not log anything to stdout even when server start fails', async () => {
+      const originalWrite = process.stdout.write;
+      const stdoutOutput: string[] = [];
+      
+      // Mock stdout.write to capture any output
+      process.stdout.write = jest.fn((chunk: any) => {
+        stdoutOutput.push(chunk.toString());
+        return true;
+      }) as any;
+
+      try {
+        const error = new Error('Connection failed');
+        mockedStartStdioServer.mockRejectedValue(error);
+        
+        await expect(startMCPServer(config)).rejects.toThrow('Connection failed');
+        
+        // Verify no output was written to stdout even on error
+        expect(stdoutOutput).toHaveLength(0);
+      } finally {
+        // Restore original stdout.write
+        process.stdout.write = originalWrite;
+      }
     });
   });
 });

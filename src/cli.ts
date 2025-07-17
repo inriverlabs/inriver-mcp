@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { consola } from 'consola';
-import { startMCPServer, validateMCPConfig, MCPConfig, MCPName, Region, Stack } from './index';
+import { startMCPServer, validateMCPConfig, MCPConfig, MCPName, Region, Stack, logger, LogLevel } from './index';
 
 const program = new Command();
 
@@ -18,19 +17,19 @@ program
   .action(async (name: string, options: any) => {
     try {
       // Set log level based on options
-      consola.level = options.debug ? 5 : 3;
+      logger.setLevel(options.debug ? LogLevel.DEBUG : LogLevel.INFO);
 
       // Validate MCP name
       const validNames: MCPName[] = ['query-manager', 'code-writer'];
       if (!validNames.includes(name as MCPName)) {
-        consola.error(`Invalid MCP name '${name}'. Valid options: ${validNames.join(', ')}`);
+        logger.error(`Invalid MCP name '${name}'. Valid options: ${validNames.join(', ')}`);
         process.exit(1);
       }
 
       // Validate region
       const validRegions: Region[] = ['euw', 'use', 'sea'];
       if (!validRegions.includes(options.region as Region)) {
-        consola.error(`Invalid region '${options.region}'. Valid options: ${validRegions.join(', ')}`);
+        logger.error(`Invalid region '${options.region}'. Valid options: ${validRegions.join(', ')}`);
         process.exit(1);
       }
 
@@ -39,7 +38,7 @@ program
 
       // For query-manager, API key is required
       if (name === 'query-manager' && !apiKey) {
-        consola.error('API key is required for query-manager. Provide it via --api-key option or INRIVER_API_KEY environment variable.');
+        logger.error('API key is required for query-manager. Provide it via --api-key option or INRIVER_API_KEY environment variable.');
         process.exit(1);
       }
 
@@ -54,17 +53,17 @@ program
       // Validate configuration
       const validation = validateMCPConfig(config);
       if (!validation.isValid) {
-        validation.errors.forEach((error: string) => consola.error(error));
+        validation.errors.forEach((error: string) => logger.error(error));
         process.exit(1);
       }
 
-      consola.debug('Configuration validated successfully');
-      consola.debug('Final config:', { ...config, apiKey: config.apiKey ? '***' : undefined });
-      consola.debug(`Starting MCP server: ${name} in ${options.region} (${config.stack})`); // Default this to debug since logs cause errors to show up in Claude Desktop
+      logger.info('Configuration validated successfully');
+      logger.debug('Final config:', { ...config, apiKey: config.apiKey ? '***' : undefined });
+      logger.info(`Starting MCP server: ${name} in ${options.region} (${config.stack})`);
       
       await startMCPServer(config);
     } catch (error) {
-      consola.error('Error starting MCP server:', error);
+      logger.error('Error starting MCP server:', error);
       process.exit(1);
     }
   });

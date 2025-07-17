@@ -12,6 +12,9 @@ export interface MCPConfig {
   apiKey?: string;
 }
 
+// Re-export logger components for convenience
+export { logger, LogLevel } from './logger';
+
 /**
  * Constructs the MCP server URL based on configuration
  */
