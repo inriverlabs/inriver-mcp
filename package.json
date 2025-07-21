@@ -10,6 +10,7 @@
     "build": "tsc",
     "dev": "ts-node src/cli.ts",
     "prepare": "npm run build",
+    "postinstall": "npm run build",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
@@ -23,7 +24,9 @@
   "author": "Your Name",
   "license": "MIT",
   "files": [
+    "src/**/*",
     "dist/**/*",
+    "tsconfig.json",
     "README.md",
     "LICENSE"
   ],
